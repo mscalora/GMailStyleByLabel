@@ -1,47 +1,68 @@
-console.log('starting...');
-
 ;(function($){
-    var self = this;
-    window.GMailLabelStyler = this;
+    var debug = function(){};
+    debug = console.log.bind(window.console);
+
+    debug('GMLS: starting...');
+
     var storage = chrome.storage.local;
     var cache = false;
     var label_dict = {};
+    /* key changes when labels change in options dialog */
     var key = 'GMailLabelStyler';
 
-    function restyle() {
+    function attachId() {
         var icon = $('[data-tooltip="Expand all"]');
-        var table = icon.closest('table').attr('id','GMailLabelStyler');
-        var stars = table.find('[role=checkbox][aria-label*=Starred],[role=checkbox][aria-label*=-star]');
-        for(var i = 0; i<stars.length; i++) {
-            var container = $(stars[i]).closest('table').parent().parent();
 
-            var tab = $(stars[i]).closest('table');
-            for(var j = 0; j<6 ; j++) {
-                var test = tab.find('div[id] [role=checkbox][aria-label*=Starred], div[id] [role=checkbox][aria-label*=-star]')
-                console.log('%d test: %d height: %d', j, test.length, tab[0].clientHeight);
-                tab = tab.parent();
+        if (icon.length) {
+            var table = icon.closest('table');
+            var found = false;
+            var labels = table.find('[name][role=button][title^=Search]');
+            labels.each(function(){
+                var text = $(this).text().toString().trim();
+                if (label_dict[text]) {
+                    debug('GMLS: Found: ' + text);
+                    found = true;
+                }
+            });
+            
+            if (found) {
+                table.attr('id', key);
+                var notice = $('#GMailLabelStyler_notice');
+                if (!notice.length) {
+                    notice = $('<div id="GMailLabelStyler_notice" title="Message styled by the GMailLabelStyler extension">Styled</div>');
+                    labels.last().closest('table').after(notice);
+                }
             }
-
-            console.log('Container: %s', container.height());
-            container.addClass('GMailLabelStyler');
         }
+
     }
 
+    /* install and update our stylesheet */
     function updateStylesheet() {
         $('#GMailLabelStyler_styles').remove();
         var new_ss = $('<style id="GMailLabelStyler_styles"> \n'+
-            '#GMailLabelStyler div.GMailLabelStyler div[id] { \n'+
+            '#' + key + ' div[id] * { \n'+
             (cache.viewer_css || '') +
             '} \n' +
-            '#GMailLabelStyler [aria-label="Message Body"] {\n' +
-            '  color: darkblue; \n' +
+            '#' + key + ' [aria-label="Message Body"] * {\n' +
             (cache.editor_css || '') +
+            '} \n' +
+            '#GMailLabelStyler_notice {\n' +
+            '  display: inline-block; \n' +
+            '  font: 11px arial,sans-serif; \n' +
+            '  font-weight: 500; \n' +
+            '  color: white !important; \n' +
+            '  background: black; \n' +
+            '  padding: 2px 4px; \n' +
+            '  vertical-align: top; \n' +
+            '  margin-top: 3px; \n' +
             '} \n</style>');
         new_ss.appendTo('head')
     }
 
+    /* setup data cache on initial load and changes so we update live when user saves in settings */
     function updateCache(items) {
-        console.log('Updating cache: %s', JSON.stringify(items));
+        debug('GMLS: Updating cache: %s', JSON.stringify(items));
         if (!cache) {
             cache = items;
         }
@@ -50,27 +71,28 @@ console.log('starting...');
             var labels = items.labels.split(',');
             for (var i = 0; i<labels.length; i++) {
                 var label = labels[i].trim();
-                console.log(i + ': "' + label + '"');
+                debug('GMLS: %d: "%s"', i, label);
                 label_dict[label] = true;
             }
+            /* create valid class/id from list of labels */
             key = 'GMailLabelStyler_' + labels.join('_').replace(/[^-a-z0-9_]+/gi,'-');
             cache.items = items.labels;
         }
         cache.viewer_css = items.viewer_css ? items.viewer_css : cache.viewer_css;
         cache.editor_css = items.editor_css ? items.editor_css : cache.editor_css;
-        if (items.viewer_css || items.editor_css) {
-            updateStylesheet();
-        }
+        updateStylesheet();
     }
 
+    /* initial cache fill */
     storage.get(['viewer_css', 'editor_css', 'labels'], function(items) {
         updateCache(items);
         updateStylesheet();
         for(var p in items) {
-            console.log("%s: %s", p, items[p]);
+            debug('GMLS: loaded data "%s": "%s"', p, items[p]);
         }
     });
 
+    /* update cache on change */
     chrome.storage.onChanged.addListener(function(changes, area){
         var items = {};
         for(var key in changes) {
@@ -79,23 +101,16 @@ console.log('starting...');
         updateCache(items);
     });
 
+    /* watch for changes to know when we will attach id */
     var timer = setInterval(function(){
-        var root = document.getElementById('GMailLabelStyler');
-        if (root) {
-            var h = root.clientHeight
-            if (h !== root.GMailLabelStyler_height) {
-                root.GMailLabelStyler_height = h;
-                restyle();
-            }
-        } else {
-            var icon = document.querySelector('[data-tooltip="Expand all"]:not(.'+key+')');
+        var root = document.getElementById(key);
+        if (!root) {
+            var icon = document.querySelector('[data-tooltip="Expand all"]');
             if (icon && cache) {
-                console.log("Styling... %s", key);
-                icon.classList.add(key);
-                restyle();
+                debug('GMLS: Attaching... %s', key);
+                attachId();
             }
         }
-    }, 250);
-
+    }, 200);
 
 }(Zepto));

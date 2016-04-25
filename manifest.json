@@ -1,21 +1,14 @@
 {
   "name": "GMailLabelStyler",
-  "description": "Set GMail message viewer styles by label",
-  "version": "0.1",
+  "description": "Set GMail message viewer and editor styles by label. Especially useful for mailing list messages or newsletters that are best viewed with a monospace font.",
+  "version": "0.2",
 
   "permissions": [
-    "activeTab",
     "https://mail.google.com/",
     "storage"
   ],
 
   "options_page": "options.html",
-
-  "browser_action": {
-    "default_icon": "icon.png",
-    "default_title": "GMailLabelStyler",
-    "default_popup": "popup.html"
-  },
 
   "content_scripts": [
     {
@@ -23,6 +16,12 @@
       "js": ["zepto.min.js", "content.js"]
     }
   ],
+
+  "icons": {
+    "16": "icon_16.png",
+    "48": "icon_48.png",
+    "128": "icon_128.png"
+  },
 
   "manifest_version": 2
 }
