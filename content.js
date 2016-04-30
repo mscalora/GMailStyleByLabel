@@ -32,6 +32,9 @@
                     notice = $('<div id="GMailLabelStyler_notice" title="Message styled by the GMailLabelStyler extension">Styled</div>');
                     labels.last().closest('table').after(notice);
                 }
+                notice.off('click').on('click',function(evt){
+                    table.toggleClass("GMLS-disabled");
+                });
             }
         }
 
@@ -41,10 +44,10 @@
     function updateStylesheet() {
         $('#GMailLabelStyler_styles').remove();
         var new_ss = $('<style id="GMailLabelStyler_styles"> \n'+
-            '#' + key + ' div[id] * { \n'+
+            '#' + key + ':not(.GMLS-disabled) div[id] * { \n'+
             (cache.viewer_css || '') +
             '} \n' +
-            '#' + key + ' [aria-label="Message Body"] * {\n' +
+            '#' + key + ':not(.GMLS-disabled) [aria-label="Message Body"] * {\n' +
             (cache.editor_css || '') +
             '} \n' +
             '#GMailLabelStyler_notice {\n' +
@@ -56,6 +59,10 @@
             '  padding: 2px 4px; \n' +
             '  vertical-align: top; \n' +
             '  margin-top: 3px; \n' +
+            '  cursor: pointer; \n' +
+            '} \n' +
+            '#GMailLabelStyler_notice:hover {\n' +
+            '  background: #444; \n' +
             '} \n</style>');
         new_ss.appendTo('head')
     }
