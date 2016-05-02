@@ -1,40 +1,39 @@
 var storage = chrome.storage.local;
 
 // Get at the DOM controls used in the sample.
-var resetButton = document.querySelector('button.reset');
 var submitButton = document.querySelector('button.submit');
+var addButton = $('button.add');
+var subButton = $('button.sub');
 var textarea = document.querySelector('textarea');
 
-// Load any CSS that may have previously been saved.
-loadChanges();
+function saveSettings() {
 
-submitButton.addEventListener('click', saveChanges);
-resetButton.addEventListener('click', reset);
+  var sections = [];
 
-function saveChanges() {
+  $('section').each(function(){
+    sections.push({
+      label: $('[name=label]', this).val()||'',
+      viewer_css: $('[name="viewer_css"]', this).val()||'',
+      editor_css: $('[name="editor_css"]', this).val()||''
+    });
+  });
 
-  var labels = document.getElementById('labels').value;
-  if (!labels) {
-    message('Error: No labels specified');
-    return;
-  }
-
-  var viewer_css = document.getElementById('viewer_css').value || '';
-  var editor_css = document.getElementById('editor_css').value || '';
-
-  storage.set({viewer_css: viewer_css, editor_css: editor_css, labels: labels}, function() {
+  storage.set({sections: sections}, function() {
     message('Settings saved');
   });
 }
 
-function loadChanges() {
-  storage.get(['viewer_css', 'editor_css', 'labels'], function(items) {
-    for (var prop in items) {
-      var node = document.getElementById(prop);
-      if (node) {
-        node.value = items[prop] || '';
+function loadSettings() {
+  storage.get(['sections'], function(items) {
+    for(var i = 0; i < items.sections.length; i++) {
+      if (i) {
+        autosize($('section').first().clone().appendTo('article').find('input, textarea').val(''));
       }
-      message('Loaded saved settings');
+      var entry = items.sections[i];
+      var section = $('section').last();
+      $('[name=label]', section).val(entry.label||'');
+      $('[name="viewer_css"]', section).val(entry.viewer_css||'');
+      $('[name="editor_css"]', section).val(entry.editor_css||'');
     }
   });
 }
@@ -56,3 +55,20 @@ function message(msg) {
     message.innerText = '';
   }, 5000);
 }
+
+autosize($('textarea'));
+
+addButton.on('click', function(){
+  autosize($('section').first().clone().appendTo('article').find('input, textarea').val(''));
+});
+
+subButton.on('click', function(){
+  if ($('section').length>1) {
+    $('section').last().remove();
+  }
+});
+
+// Load any CSS that may have previously been saved.
+loadSettings();
+
+submitButton.addEventListener('click', saveSettings);

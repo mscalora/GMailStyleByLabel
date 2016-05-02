@@ -1,40 +1,57 @@
 ;(function($){
     var debug = function(){};
-    debug = console.log.bind(window.console);
+    //debug = console.log.bind(window.console);
 
     debug('GMLS: starting...');
 
     var storage = chrome.storage.local;
     var cache = false;
-    var label_dict = {};
-    /* key changes when labels change in options dialog */
+    var keyLookup = {};
+    var labelLookup = {};
+    /* key changes when label change in options dialog */
     var key = 'GMailLabelStyler';
 
-    function attachId() {
-        var icon = $('[data-tooltip="Expand all"]');
+    function updateClasses() {
+        var icon = $('[role=button][data-tooltip="Print all"]');
+        icon = icon.length ? icon : $('[role=button][title="Print all"]');
 
         if (icon.length) {
             var table = icon.closest('table');
-            var found = false;
-            var labels = table.find('[name][role=button][title^=Search]');
-            labels.each(function(){
+            var styled = false;
+            var pills = table.find('[name][role=button][title^=Search]');
+            var keys = [];
+
+            pills.each(function(){
                 var text = $(this).text().toString().trim();
-                if (label_dict[text]) {
-                    debug('GMLS: Found: ' + text);
-                    found = true;
+                if (labelLookup[text]) {
+                    styled = true;
+                    var key = labelLookup[text].key;
+                    keys.push(key);
+                    if ($('.'+key).length==0) {
+                        table.addClass(key);
+                        debug('Found missing key for: ' + text);
+                    }
                 }
             });
-            
-            if (found) {
-                table.attr('id', key);
+
+            for (cls in table.classList) {
+                if (cls.search(/^GMLS/)==0 && !(cls in keyLookup)) {
+                    table.removeClass(cls);
+                    debug('Found extra key for: ' + cls);
+                }
+            }
+
+            if (styled) {
                 var notice = $('#GMailLabelStyler_notice');
                 if (!notice.length) {
-                    notice = $('<div id="GMailLabelStyler_notice" title="Message styled by the GMailLabelStyler extension">Styled</div>');
-                    labels.last().closest('table').after(notice);
+                    notice = $('<div id="GMailLabelStyler_notice" title="Message styled by the GMail Label Styler extension">Styled</div>');
+                    pills.last().closest('table').after(notice);
                 }
                 notice.off('click').on('click',function(evt){
                     table.toggleClass("GMLS-disabled");
                 });
+            } else {
+                $('#GMailLabelStyler_notice').remove();
             }
         }
 
@@ -42,14 +59,19 @@
 
     /* install and update our stylesheet */
     function updateStylesheet() {
+        var styles = "";
+        $.each(keyLookup,function(key, entry){
+            style = '.'+key+':not(.GMLS-disabled) .ii { \n' +
+                (entry.viewer_css || '') + '\n' +
+                '}\n' +
+                '.'+key+':not(.GMLS-disabled) .Ak { \n' +
+                (entry.editor_css || '') + '\n' +
+                '}\n\n';
+            styles += style;
+        });
+
         $('#GMailLabelStyler_styles').remove();
-        var new_ss = $('<style id="GMailLabelStyler_styles"> \n'+
-            '#' + key + ':not(.GMLS-disabled) div[id] * { \n'+
-            (cache.viewer_css || '') +
-            '} \n' +
-            '#' + key + ':not(.GMLS-disabled) [aria-label="Message Body"] * {\n' +
-            (cache.editor_css || '') +
-            '} \n' +
+        var new_ss = $('<style id="GMailLabelStyler_styles"> \n'+ styles +
             '#GMailLabelStyler_notice {\n' +
             '  display: inline-block; \n' +
             '  font: 11px arial,sans-serif; \n' +
@@ -63,6 +85,9 @@
             '} \n' +
             '#GMailLabelStyler_notice:hover {\n' +
             '  background: #444; \n' +
+            '} \n' +
+            '.GMLS-disabled #GMailLabelStyler_notice:before {\n' +
+            '  content: "!"; \n' +
             '} \n</style>');
         new_ss.appendTo('head')
     }
@@ -73,25 +98,26 @@
         if (!cache) {
             cache = items;
         }
-        if (items.labels) {
-            labels_dict = {};
-            var labels = items.labels.split(',');
-            for (var i = 0; i<labels.length; i++) {
-                var label = labels[i].trim();
-                debug('GMLS: %d: "%s"', i, label);
-                label_dict[label] = true;
+        entryByLabelKey = {};
+        labelLookup = {};
+
+        if (items.sections) {
+            for (int = i = 0; i < items.sections.length; i++) {
+                var entry = items.sections[i];
+                if (entry.label) {
+                    var label = entry.label.trim();
+                    var labelKey = 'GMLS_'+label.replace(/[^-_\w]/g,'•');
+                    entry.key = labelKey;
+                    keyLookup[labelKey] = entry;
+                    labelLookup[label] = entry;
+                }
             }
-            /* create valid class/id from list of labels */
-            key = 'GMailLabelStyler_' + labels.join('_').replace(/[^-a-z0-9_]+/gi,'-');
-            cache.items = items.labels;
         }
-        cache.viewer_css = items.viewer_css ? items.viewer_css : cache.viewer_css;
-        cache.editor_css = items.editor_css ? items.editor_css : cache.editor_css;
-        updateStylesheet();
+        cache = true;
     }
 
     /* initial cache fill */
-    storage.get(['viewer_css', 'editor_css', 'labels'], function(items) {
+    storage.get(['sections'], function(items) {
         updateCache(items);
         updateStylesheet();
         for(var p in items) {
@@ -106,18 +132,33 @@
             items[key] = changes[key].newValue;
         }
         updateCache(items);
+        updateStylesheet();
     });
 
     /* watch for changes to know when we will attach id */
+    var cacheHeight = 0;
+    var counter = 0;
+    var cacheTitle = null;
     var timer = setInterval(function(){
-        var root = document.getElementById(key);
-        if (!root) {
-            var icon = document.querySelector('[data-tooltip="Expand all"]');
-            if (icon && cache) {
-                debug('GMLS: Attaching... %s', key);
-                attachId();
+        var height = (document.getElementById(key) || { clientHeight: -1 }).clientHeight;
+        var title = ($('h2').slice(-1)[0] || {}).innerText;
+        counter++;
+        if (height!==cacheHeight || counter>6 || title !== cacheTitle) {
+            debug("Fired because:"
+                + (height!==cacheHeight?" HEIGHT":"")
+                + (counter>6?" COUNTER":"")
+                + (title !== cacheTitle?" TITLE":"")
+            );
+            if (cache) {
+                updateClasses();
+                cacheHeight = height;
+                cacheTitle = title;
+                counter = 0;
+            }
+            if (height<0) {
+                $('[role=main]').attr('id', key);
             }
         }
-    }, 200);
+    }, 250);
 
 }(Zepto));

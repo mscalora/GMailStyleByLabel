@@ -1,12 +1,12 @@
 <!doctype html>
 <html>
   <head>
-    <title>GMailLabelStyler</title>
+    <title>GMail Label Styler</title>
     <style>
       body {
         font-family: sans-serif;
       }
-      section {
+      #contianer {
         max-width: 600px;
         margin: 0 auto;
       }
@@ -20,7 +20,6 @@
       textarea {
         font-family: monospace;
         width: 100%;
-        height: 1.25in;
       }
       input {
         width: 100%;
@@ -31,29 +30,43 @@
         background: #eee;
         padding: 5px;
       }
-      .example {
-        margin-top: 3px;
-        color: #888;
+      .actions {
+        float: right;
+      }
+      section {
+        margin: 10px 4px;
+        padding: 10px 20px 10px 10px;
+        outline: 1px solid #ccc;
       }
     </style>
+    <script src="zepto.min.js"></script>
+    <script src="autosize.min.js"></script>
   </head>
   <body>
-    <section>
+    <div id="contianer">
+      <div class="message"></div>
+      <h3>Add Styles to content of GMail messages by label</h3>
 
-    <div class="message"></div>
-    <h3>Add Styles to content of GMail messages by label</h3>
-
-    <label>GMail Labels</label>
-    <input type="text" id="labels">
-    <div class="example">Example: top-secret, confidential, for-your-eys-only</div>
-    <label>Message Viewer CSS Properties</label>
-    <textarea name="style_url" id="viewer_css" placeholder="eg: font-family: monospace;"></textarea>
-    <label>Message Editor CSS Properties</label>
-    <textarea name="style_url" id="editor_css" placeholder="eg: color: blue;"></textarea>
-    <button class="submit">Save</button>
-    <button class="reset">Reset</button>
-
+      <article>
+        <section>
+          <label>GMail Label</label>
+          <input type="text" name="label" placeholder="work">
+          <label>Message Viewer CSS Properties</label>
+          <textarea name="viewer_css" placeholder="eg: font-family: monospace;"></textarea>
+          <label>Message Editor CSS Properties</label>
+          <textarea name="editor_css" placeholder="eg: color: blue;"></textarea>
+        </section>
+      </article>
+      <div>
+        <div class="actions">
+          <button class="submit">Save</button>
+        </div>
+        <div class="controls">
+          <button class="add" title="Add Section">+</button>
+          <button class="sub" title="Remove Last Section">-</button>
+        </div>
+      </div>
+    </div>
     <script src="options.js"></script>
-    </section>
   </body>
 </html>
