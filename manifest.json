@@ -1,7 +1,7 @@
 {
-  "name": "GMailLabelStyler",
+  "name": "GMail Label Styler",
   "description": "Set GMail message viewer and editor styles by label. e.g. mailing list messages that are best viewed with a monospace font.",
-  "version": "0.6",
+  "version": "0.7",
 
   "permissions": [
     "https://mail.google.com/",
