@@ -64,7 +64,7 @@
             style = '.'+key+':not(.GMLS-disabled) .ii { \n' +
                 (entry.viewer_css || '') + '\n' +
                 '}\n' +
-                '.'+key+':not(.GMLS-disabled) .Ak { \n' +
+                '.'+key+':not(.GMLS-disabled) [aria-label="Message Body"] { \n' +
                 (entry.editor_css || '') + '\n' +
                 '}\n\n';
             styles += style;
