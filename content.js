@@ -12,83 +12,88 @@
     var key = 'GMailLabelStyler';
 
     function updateClasses() {
-        var icon = $('[role=button][data-tooltip="Print all"]');
-        icon = icon.length ? icon : $('[role=button][title="Print all"]');
-
-        if (icon.length) {
-            var table = icon.closest('table');
-            var styled = false;
-            var pills = table.find('[name][role=button][title^=Search]');
-            var keys = [];
-
-            pills.each(function(){
-                var text = $(this).text().toString().trim();
-                if (labelLookup[text]) {
-                    styled = true;
-                    var key = labelLookup[text].key;
-                    keys.push(key);
-                    if ($('.'+key).length==0) {
-                        table.addClass(key);
-                        debug('Found missing key for: ' + text);
-                    }
+        var entries = [],
+            keys = [];
+        var pills = document.querySelectorAll('[name][role=button][title^=Search]'),
+            noticeContainer;
+        for (let pill of Array.from(pills)) {
+            let labelName = (pill.innerText || '').trim().toLowerCase(),
+                entry = labelLookup[labelName];
+            if (entry) {
+                if (JSON.stringify(labelLookup).includes('GMLS-DEBUG')) {
+                    pill.style.border = '2px solid red';
                 }
-            });
-
-            for (cls in table.classList) {
-                if (cls.search(/^GMLS/)==0 && !(cls in keyLookup)) {
-                    table.removeClass(cls);
-                    debug('Found extra key for: ' + cls);
-                }
+                entries.push(entry);
+                keys.push(labelLookup[labelName].key);
             }
-
-            if (styled) {
-                var notice = $('#GMailLabelStyler_notice');
-                if (!notice.length) {
-                    notice = $('<div id="GMailLabelStyler_notice" title="Message styled by the GMail Label Styler extension">Styled</div>');
-                    pills.last().closest('table').after(notice);
-                }
-                notice.off('click').on('click',function(evt){
-                    table.toggleClass("GMLS-disabled");
-                });
+            noticeContainer = pill.closest('table').closest('div');
+        }
+        for (let key of Object.keys(keyLookup)) {
+            if (keys.includes(key)) {
+                document.body.classList.add(key);
             } else {
-                $('#GMailLabelStyler_notice').remove();
+                document.body.classList.remove(key);
             }
         }
-
+        if (entries.length) {
+            let tab = pills[0].closest('table[role="presentation"]'),
+                msg = tab && tab.querySelector('[data-message-id]'),
+                contentNode = msg && msg.children.item(1) && msg.children.item(1).children.item(2);
+            if (contentNode) {
+                for (let entry of entries) {
+                    contentNode.classList.add('GMLS-viewer-content');
+                }
+            }
+            if (noticeContainer) {
+                var notice = document.querySelector('#GMailLabelStyler-notice');
+                if (!notice) {
+                    html = '<div id="GMailLabelStyler-notice" title="Message styled by the GMail Label Styler extension">Styled</div>';
+                    noticeContainer.insertAdjacentHTML('beforeend', html);
+                    notice = document.querySelector('#GMailLabelStyler-notice');
+                    notice.addEventListener('click', e => document.body.classList.toggle("GMLS-disabled"));
+                }
+            }
+        } else {
+            $('#GMailLabelStyler-notice').remove();
+        }
     }
 
     /* install and update our stylesheet */
     function updateStylesheet() {
         var styles = "";
         $.each(keyLookup,function(key, entry){
-            style = '.'+key+':not(.GMLS-disabled) .ii { \n' +
-                (entry.viewer_css || '') + '\n' +
-                '}\n' +
-                '.'+key+':not(.GMLS-disabled) [aria-label="Message Body"] { \n' +
-                (entry.editor_css || '') + '\n' +
-                '}\n\n';
+            style = `
+              body:not(.GMLS-disabled).${key} .GMLS-viewer-content div {
+                ${entry.viewer_css}
+              }
+              body:not(.GMLS-disabled).${key} [aria-label="Message Body"] {
+                ${entry.editor_css}
+              }
+            `;
             styles += style;
         });
 
         $('#GMailLabelStyler_styles').remove();
-        var new_ss = $('<style id="GMailLabelStyler_styles"> \n'+ styles +
-            '#GMailLabelStyler_notice {\n' +
-            '  display: inline-block; \n' +
-            '  font: 11px arial,sans-serif; \n' +
-            '  font-weight: 500; \n' +
-            '  color: white !important; \n' +
-            '  background: black; \n' +
-            '  padding: 2px 4px; \n' +
-            '  vertical-align: top; \n' +
-            '  margin-top: 3px; \n' +
-            '  cursor: pointer; \n' +
-            '} \n' +
-            '#GMailLabelStyler_notice:hover {\n' +
-            '  background: #444; \n' +
-            '} \n' +
-            '.GMLS-disabled #GMailLabelStyler_notice:before {\n' +
-            '  content: "!"; \n' +
-            '} \n</style>');
+        var new_ss = $(`<style id="GMailLabelStyler_styles"> 
+            ${styles}
+              #GMailLabelStyler-notice {
+                display: inline-block; 
+                font: 11px arial,sans-serif; 
+                font-weight: 500; 
+                color: white !important; 
+                background: black; 
+                padding: 2px 4px; 
+                vertical-align: top; 
+                margin-top: 3px; 
+                cursor: pointer; 
+              } 
+              #GMailLabelStyler-notice:hover {
+                background: #444; 
+              } 
+              .GMLS-disabled #GMailLabelStyler-notice:before {
+                content: "!"; 
+              }
+            </style>`);
         new_ss.appendTo('head')
     }
 
@@ -106,10 +111,10 @@
                 var entry = items.sections[i];
                 if (entry.label) {
                     var label = entry.label.trim();
-                    var labelKey = 'GMLS_'+label.replace(/[^-_\w]/g,'•');
+                    var labelKey = 'GMLS-label-'+label.replace(/[^-_\w]/g,'•');
                     entry.key = labelKey;
                     keyLookup[labelKey] = entry;
-                    labelLookup[label] = entry;
+                    labelLookup[label.toLowerCase()] = entry;
                 }
             }
         }
